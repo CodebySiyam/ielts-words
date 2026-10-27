@@ -23,8 +23,9 @@
   <main class="container layout">
 
     <!-- ===== Statistics ===== -->
-    <section class="stats" aria-label="Session statistics">
-      <div class="stat"><span class="stat__value" id="stat-attempted">0</span><span class="stat__label">Attempted</span></div>
+    <section class="stats" aria-label="Your statistics">
+      <div class="stat stat--today"><span class="stat__value" id="stat-today">0</span><span class="stat__label">Today <span class="stat__sub" id="stat-today-sub">No words yet</span></span></div>
+      <div class="stat"><span class="stat__value" id="stat-attempted">0</span><span class="stat__label">All-time attempted</span></div>
       <div class="stat stat--good"><span class="stat__value" id="stat-correct">0</span><span class="stat__label">Correct</span></div>
       <div class="stat stat--bad"><span class="stat__value" id="stat-incorrect">0</span><span class="stat__label">Incorrect</span></div>
       <div class="stat"><span class="stat__value" id="stat-accuracy">0%</span><span class="stat__label">Accuracy</span></div>
@@ -45,7 +46,7 @@
           <option value="part4">IELTS Part 4: academic lectures</option>
           <option value="topic">Topic Practice</option>
           <option value="spelling">Spelling Challenge</option>
-          <option value="revision">Revision Mode (this session)</option>
+          <option value="revision">Revision Mode (your saved mistakes)</option>
         </select>
       </div>
 
@@ -73,6 +74,15 @@
           </select>
         </div>
       </div>
+      <div class="field">
+        <label for="voice-select">Voice</label>
+        <div class="voice-row">
+          <select id="voice-select">
+            <option value="">Automatic (best available)</option>
+          </select>
+          <button type="button" class="btn btn--ghost btn--small" id="test-voice-btn">Test</button>
+        </div>
+      </div>
       <p class="voice-info" id="voice-info" aria-live="polite"></p>
 
       <div class="toggle">
@@ -80,7 +90,8 @@
         <label for="hints-toggle">Allow hints (first letter and length)</label>
       </div>
 
-      <button type="button" class="btn btn--ghost btn--small" id="reset-btn">Reset scores</button>
+      <button type="button" class="btn btn--ghost btn--small" id="reset-btn">Reset all progress</button>
+      <p class="storage-note" id="storage-note" hidden>This browser is blocking storage, so progress will reset when you close the page. Private or incognito windows often do this.</p>
     </section>
 
     <!-- ===== Practice card ===== -->
@@ -154,6 +165,7 @@
       <h2 id="help-heading">How scoring works</h2>
       <p>Answers ignore capital letters and extra spaces, but every letter must be right, just as in the real test. British and American spellings are both accepted.</p>
       <p>Show answer counts as incorrect. Skipped words aren't scored, but they appear in Revision Mode with your mistakes.</p>
+      <p>Your scores and revision list are saved in this browser after every answer, so you can close the page and continue later. Each device keeps its own progress.</p>
       <p>Keyboard: press Enter to submit, Tab to move between controls, and Alt + R to replay the word while typing.</p>
     </section>
   </main>
