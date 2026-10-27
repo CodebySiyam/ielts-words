@@ -3,7 +3,7 @@
    Sections:
    1. Vocabulary data (batches)   2. Practice modes
    3. App state   4. DOM references   5. Helpers
-   6. Settings    7. Audio          8. Filtering
+   6. Saving settings and progress   7. Audio          8. Filtering
    9. Loading words  10. Checking answers  11. Spelling advice
    12. Feedback  13. Statistics  14. End of session  15. Start-up
    ========================================================= */
@@ -843,7 +843,7 @@ const MODES = {
   part4:    { label: "IELTS Part 4",       filter: function (w) { return w.ieltsPart === 4; } },
   topic:    { label: "Topic Practice",     filter: function (w) { return w.topic === state.topic; } },
   spelling: { label: "Spelling Challenge", filter: function (w) { return w.difficulty === "hard" || Boolean(CONFUSED_NOTES[w.word]); } },
-  revision: { label: "Revision Mode",      filter: null }
+  revision: { label: "Revision Mode",      filter: null } // built from saved mistakes
 };
 
 /* =========================================================
@@ -860,9 +860,10 @@ const state = {
   status: "idle",     // "waiting" | "answered" | "finished" | "empty"
   hintShown: false,
   completed: 0,       // words finished in this queue (answered, revealed or skipped)
-  stats: { attempted: 0, correct: 0, incorrect: 0, streak: 0, bestStreak: 0 },
-  history: new Map(), // word id -> { entry, result, wrongCount }
-  settings: { accent: "en-GB", rate: 0.9, hints: false },
+  stats: { attempted: 0, correct: 0, incorrect: 0, streak: 0, bestStreak: 0 }, // all-time (saved)
+  today: { date: "", attempted: 0, correct: 0, incorrect: 0 },                   // resets each day
+  history: new Map(), // word id -> { entry, result, wrongCount } – used by Revision Mode
+  settings: { accent: "en-GB", voiceName: "", rate: 0.9, hints: false },
   voices: []
 };
 
@@ -879,6 +880,9 @@ const ui = {
   topicField: $("topic-field"),
   topicSelect: $("topic-select"),
   accentSelect: $("accent-select"),
+  voiceSelect: $("voice-select"),
+  testVoiceBtn: $("test-voice-btn"),
+  storageNote: $("storage-note"),
   speedSelect: $("speed-select"),
   hintsToggle: $("hints-toggle"),
   voiceInfo: $("voice-info"),
@@ -890,6 +894,8 @@ const ui = {
   statAccuracy: $("stat-accuracy"),
   statStreak: $("stat-streak"),
   statBest: $("stat-best"),
+  statToday: $("stat-today"),
+  statTodaySub: $("stat-today-sub"),
 
   metaMode: $("meta-mode"),
   metaPart: $("meta-part"),
@@ -979,22 +985,58 @@ function editDistance(a, b) {
 }
 
 /* =========================================================
-   6. SETTINGS (optional localStorage – the app works without it)
+   6. SAVING SETTINGS AND PROGRESS (localStorage)
+   Everything is saved in this browser only. If storage is
+   blocked (for example in private browsing), the app still
+   works; progress just resets when the page closes.
    ========================================================= */
 
-function saveSettings() {
+const SETTINGS_KEY = "ieltsTrainerSettings";
+const PROGRESS_KEY = "ieltsTrainerProgress";
+let storageAvailable = true;
+
+/** Checks once whether the browser lets us save anything. */
+function checkStorage() {
   try {
-    localStorage.setItem("ieltsTrainerSettings", JSON.stringify(state.settings));
+    localStorage.setItem("ieltsTrainerTest", "1");
+    localStorage.removeItem("ieltsTrainerTest");
+    storageAvailable = true;
   } catch (error) {
-    // Storage may be blocked (e.g. private browsing). Practice still works.
+    storageAvailable = false;
+  }
+  ui.storageNote.hidden = storageAvailable;
+}
+
+/** Today's date as "YYYY-MM-DD" in local time. */
+function todayString() {
+  const d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+function emptyToday() {
+  return { date: todayString(), attempted: 0, correct: 0, incorrect: 0 };
+}
+
+/** Starts a fresh "Today" count when the date has changed. */
+function refreshToday() {
+  if (state.today.date !== todayString()) state.today = emptyToday();
+}
+
+function saveSettings() {
+  if (!storageAvailable) return;
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+  } catch (error) {
+    // Ignore: practice works without saving.
   }
 }
 
 function loadSettings() {
   try {
-    const saved = JSON.parse(localStorage.getItem("ieltsTrainerSettings"));
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY));
     if (saved && typeof saved === "object") {
       if (typeof saved.accent === "string") state.settings.accent = saved.accent;
+      if (typeof saved.voiceName === "string") state.settings.voiceName = saved.voiceName;
       if (typeof saved.rate === "number") state.settings.rate = saved.rate;
       if (typeof saved.hints === "boolean") state.settings.hints = saved.hints;
     }
@@ -1006,32 +1048,144 @@ function loadSettings() {
   ui.hintsToggle.checked = state.settings.hints;
 }
 
+/**
+ * Saves scores, today's count and the revision list.
+ * Words are saved by their spelling (not their id), so adding
+ * new vocabulary batches later never mixes up saved progress.
+ */
+function saveProgress() {
+  if (!storageAvailable) return;
+  const history = [];
+  state.history.forEach(function (item) {
+    history.push({ word: item.entry.word, result: item.result, wrongCount: item.wrongCount });
+  });
+  const data = { version: 1, stats: state.stats, today: state.today, history: history };
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(data));
+  } catch (error) {
+    storageAvailable = false;
+    ui.storageNote.hidden = false;
+  }
+}
+
+/** Loads saved progress, ignoring anything missing or damaged. */
+function loadProgress() {
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(PROGRESS_KEY));
+  } catch (error) {
+    saved = null;
+  }
+  if (!saved || typeof saved !== "object") return;
+
+  // Overall statistics
+  const s = saved.stats || {};
+  ["attempted", "correct", "incorrect", "streak", "bestStreak"].forEach(function (key) {
+    if (Number.isFinite(s[key]) && s[key] >= 0) state.stats[key] = Math.floor(s[key]);
+  });
+  state.stats.attempted = state.stats.correct + state.stats.incorrect; // keep the numbers consistent
+
+  // Today's count (only if it was saved today)
+  const t = saved.today;
+  if (t && t.date === todayString()) {
+    state.today.correct = Number.isFinite(t.correct) ? Math.max(0, Math.floor(t.correct)) : 0;
+    state.today.incorrect = Number.isFinite(t.incorrect) ? Math.max(0, Math.floor(t.incorrect)) : 0;
+    state.today.attempted = state.today.correct + state.today.incorrect;
+  }
+
+  // Revision list
+  if (Array.isArray(saved.history)) {
+    const byWord = new Map(VOCABULARY.map(function (w) { return [w.word, w]; }));
+    const validResults = ["correct", "incorrect", "revealed", "skipped"];
+    saved.history.forEach(function (item) {
+      const entry = item && byWord.get(item.word);
+      if (entry && validResults.indexOf(item.result) !== -1) {
+        state.history.set(entry.id, {
+          entry: entry,
+          result: item.result,
+          wrongCount: Number.isFinite(item.wrongCount) ? item.wrongCount : 0
+        });
+      }
+    });
+  }
+}
+
 /* =========================================================
    7. AUDIO (Web Speech API)
    ========================================================= */
 
-/** Loads the list of voices. Some browsers load them late, so this runs twice. */
+/** The language code of a voice, e.g. "en-gb". */
+function langOf(voice) {
+  return voice.lang.replace("_", "-").toLowerCase();
+}
+
+/** Rough quality score so "Automatic" prefers natural-sounding voices. */
+function voiceQuality(voice) {
+  const name = voice.name.toLowerCase();
+  if (name.indexOf("natural") !== -1 || name.indexOf("online") !== -1) return 3;
+  if (name.indexOf("google") !== -1 || name.indexOf("enhanced") !== -1 || name.indexOf("premium") !== -1) return 2;
+  return 1;
+}
+
+function bestVoice(list) {
+  return list.slice().sort(function (a, b) { return voiceQuality(b) - voiceQuality(a); })[0] || null;
+}
+
+function englishVoices() {
+  return state.voices.filter(function (v) { return langOf(v).indexOf("en") === 0; });
+}
+
+/** Loads the list of voices. Some browsers load them late, so this can run twice. */
 function loadVoices() {
   if (!speechSupported) return;
   state.voices = window.speechSynthesis.getVoices();
+  populateVoiceSelect();
   updateVoiceInfo();
 }
 
-/** Picks the best voice for the chosen accent, or null for the browser default. */
+/** Fills the Voice dropdown with English voices for the chosen accent. */
+function populateVoiceSelect() {
+  const select = ui.voiceSelect;
+  const english = englishVoices();
+  const wanted = state.settings.accent.toLowerCase();
+
+  let list = wanted === "any" ? english : english.filter(function (v) { return langOf(v) === wanted; });
+  if (!list.length) list = english; // accent not installed: offer every English voice
+  list.sort(function (a, b) { return a.name.localeCompare(b.name); });
+
+  select.replaceChildren();
+  const auto = el("option", "", "Automatic (best available)");
+  auto.value = "";
+  select.appendChild(auto);
+  list.forEach(function (v) {
+    const option = el("option", "", v.name + " (" + v.lang + ")");
+    option.value = v.name;
+    select.appendChild(option);
+  });
+
+  const savedIsListed = list.some(function (v) { return v.name === state.settings.voiceName; });
+  select.value = savedIsListed ? state.settings.voiceName : "";
+  select.disabled = !english.length;
+  ui.testVoiceBtn.disabled = !speechSupported;
+}
+
+/** Returns the chosen voice, the best voice for the accent, or null (browser default). */
 function getVoice() {
   const voices = state.voices;
   if (!voices.length) return null;
-  const wanted = state.settings.accent.toLowerCase();
-  const matchLang = function (v) { return v.lang.replace("_", "-").toLowerCase(); };
 
-  let match = null;
+  if (state.settings.voiceName) {
+    const chosen = voices.find(function (v) { return v.name === state.settings.voiceName; });
+    if (chosen) return chosen;
+  }
+
+  const english = englishVoices();
+  const wanted = state.settings.accent.toLowerCase();
   if (wanted !== "any") {
-    match = voices.find(function (v) { return matchLang(v) === wanted; });
+    const match = bestVoice(english.filter(function (v) { return langOf(v) === wanted; }));
+    if (match) return match;
   }
-  if (!match) {
-    match = voices.find(function (v) { return matchLang(v).indexOf("en") === 0; });
-  }
-  return match || null;
+  return bestVoice(english);
 }
 
 function updateVoiceInfo() {
@@ -1041,26 +1195,31 @@ function updateVoiceInfo() {
   }
   const voice = getVoice();
   if (!voice) {
-    ui.voiceInfo.textContent = "Voice: browser default";
+    ui.voiceInfo.textContent = "Using the browser's default voice.";
     return;
   }
   const wanted = state.settings.accent.toLowerCase();
-  const exact = wanted === "any" || voice.lang.replace("_", "-").toLowerCase() === wanted;
-  ui.voiceInfo.textContent = "Voice: " + voice.name + (exact ? "" : " (chosen accent not installed)");
+  const accentMissing = wanted !== "any" && !englishVoices().some(function (v) { return langOf(v) === wanted; });
+  ui.voiceInfo.textContent = accentMissing
+    ? "No voice for this accent is installed, so another English voice is used."
+    : "Now using: " + voice.name;
 }
 
-/** Speaks the current word. The word is never shown on screen. */
-function playAudio() {
+/**
+ * Speaks any text with the current voice and speed.
+ * @param {string}  text
+ * @param {boolean} isWord - true for practice words (animates the Play button)
+ */
+function speak(text, isWord) {
   if (!speechSupported) {
     showAudioWarning("Your browser can't play speech. Try Chrome, Edge or Safari, or use Show answer to study the word.");
     return;
   }
-  if (!state.current) return;
 
   const synth = window.speechSynthesis;
   synth.cancel(); // stop anything still playing (also fixes a Chrome bug)
 
-  const utterance = new SpeechSynthesisUtterance(state.current.word);
+  const utterance = new SpeechSynthesisUtterance(text);
   const voice = getVoice();
   if (voice) {
     utterance.voice = voice;
@@ -1071,6 +1230,7 @@ function playAudio() {
   utterance.rate = state.settings.rate;
 
   utterance.onstart = function () {
+    if (!isWord) return;
     ui.audioStatus.textContent = "Playing…";
     ui.playBtn.classList.add("is-playing");
   };
@@ -1081,15 +1241,26 @@ function playAudio() {
   utterance.onerror = function (event) {
     ui.playBtn.classList.remove("is-playing");
     ui.audioStatus.textContent = "";
-    // "interrupted" and "canceled" happen when a new word starts; they are not real errors.
+    // "interrupted" and "canceled" happen when a new sound starts; they are not real errors.
     if (event.error !== "interrupted" && event.error !== "canceled") {
-      showAudioWarning("The audio couldn't play (" + event.error + "). Check your volume and try Play again.");
+      showAudioWarning("The audio couldn't play (" + event.error + "). Check your volume and try again.");
     }
   };
 
   hideAudioWarning();
   synth.speak(utterance);
   if (synth.paused) synth.resume();
+}
+
+/** Speaks the current practice word. The word is never shown on screen. */
+function playAudio() {
+  if (!state.current) return;
+  speak(state.current.word, true);
+}
+
+/** Lets the learner hear a voice before choosing it. */
+function testVoice() {
+  speak("This is the voice you will hear during practice.", false);
 }
 
 function showAudioWarning(message) {
@@ -1417,6 +1588,10 @@ function calculateAccuracy() {
 /** Updates the counters after one scored answer. */
 function updateStatistics(correct) {
   const s = state.stats;
+  refreshToday();
+  state.today.attempted += 1;
+  if (correct) state.today.correct += 1; else state.today.incorrect += 1;
+
   s.attempted += 1;
   if (correct) {
     s.correct += 1;
@@ -1437,6 +1612,11 @@ function renderStatistics() {
   ui.statAccuracy.textContent = calculateAccuracy() + "%";
   ui.statStreak.textContent = s.streak;
   ui.statBest.textContent = "Best: " + s.bestStreak;
+
+  refreshToday();
+  const t = state.today;
+  ui.statToday.textContent = t.attempted;
+  ui.statTodaySub.textContent = t.attempted ? Math.round((t.correct / t.attempted) * 100) + "% correct" : "No words yet";
 }
 
 /** Remembers each word for Revision Mode. */
@@ -1444,6 +1624,7 @@ function recordHistory(entry, result) {
   const previous = state.history.get(entry.id);
   const wrongCount = (previous ? previous.wrongCount : 0) + (result === "incorrect" || result === "revealed" ? 1 : 0);
   state.history.set(entry.id, { entry: entry, result: result, wrongCount: wrongCount });
+  saveProgress();
 }
 
 function updateProgress() {
@@ -1493,8 +1674,8 @@ function endSession() {
   ui.endTitle.textContent = "Session complete";
   ui.endText.textContent =
     "You finished all " + state.queue.length + " words in " + MODES[state.mode].label +
-    ". Session accuracy so far: " + calculateAccuracy() + "% (" + state.stats.correct + " of " +
-    state.stats.attempted + " correct).";
+    ". Overall accuracy: " + calculateAccuracy() + "% (" + state.stats.correct + " of " +
+    state.stats.attempted + " correct). Today you have practised " + state.today.attempted + " words.";
   ui.restartBtn.hidden = false;
   ui.reviseBtn.hidden = state.history.size === 0;
   ui.restartBtn.textContent = "Practise this mode again";
@@ -1511,7 +1692,7 @@ function showEmptyState() {
   ui.endPanel.hidden = false;
   if (state.mode === "revision") {
     ui.endTitle.textContent = "Nothing to revise yet";
-    ui.endText.textContent = "Answer, skip or reveal a few words in another mode. They will appear here, with mistakes first.";
+    ui.endText.textContent = "Answer, skip or reveal a few words in another mode. They will appear here, with mistakes first, and stay saved for next time.";
     ui.restartBtn.textContent = "Start All Vocabulary";
   } else {
     ui.endTitle.textContent = "No words found";
@@ -1525,10 +1706,16 @@ function showEmptyState() {
   setButtons();
 }
 
-/** Resets all statistics and the revision history. */
+/** Resets all statistics, today's count and the revision list (also in storage). */
 function resetStatistics() {
   state.stats = { attempted: 0, correct: 0, incorrect: 0, streak: 0, bestStreak: 0 };
+  state.today = emptyToday();
   state.history.clear();
+  try {
+    localStorage.removeItem(PROGRESS_KEY);
+  } catch (error) {
+    // Nothing saved to remove.
+  }
   renderStatistics();
   if (state.mode === "revision") {
     selectMode("all");
@@ -1577,9 +1764,17 @@ function bindEvents() {
 
   ui.accentSelect.addEventListener("change", function () {
     state.settings.accent = ui.accentSelect.value;
+    state.settings.voiceName = ""; // go back to Automatic for the new accent
+    populateVoiceSelect();
     updateVoiceInfo();
     saveSettings();
   });
+  ui.voiceSelect.addEventListener("change", function () {
+    state.settings.voiceName = ui.voiceSelect.value;
+    updateVoiceInfo();
+    saveSettings();
+  });
+  ui.testVoiceBtn.addEventListener("click", testVoice);
   ui.speedSelect.addEventListener("change", function () {
     state.settings.rate = parseFloat(ui.speedSelect.value);
     saveSettings();
@@ -1592,7 +1787,9 @@ function bindEvents() {
   });
 
   ui.resetBtn.addEventListener("click", function () {
-    if (window.confirm("Reset all scores and clear the revision list?")) resetStatistics();
+    if (window.confirm("Reset all progress? This clears your scores, today's count and the revision list. Your settings are kept.")) {
+      resetStatistics();
+    }
   });
 
   ui.restartBtn.addEventListener("click", function () {
@@ -1629,7 +1826,10 @@ function init() {
   });
 
   fillTopicSelect();
+  checkStorage();
   loadSettings();
+  state.today = emptyToday();
+  loadProgress();
   bindEvents();
 
   if (speechSupported) {
@@ -1637,6 +1837,8 @@ function init() {
     window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
   } else {
     showAudioWarning("Your browser can't play speech, so the listening exercise won't work here. Try Chrome, Edge or Safari. You can still use Show answer to study words.");
+    ui.voiceSelect.disabled = true;
+    ui.testVoiceBtn.disabled = true;
     updateVoiceInfo();
   }
 
