@@ -1,0 +1,431 @@
+/* =========================================================
+   IELTS Listening Vocabulary Trainer – styles
+   1. Colours and base settings
+   2. Layout
+   3. Header and statistics
+   4. Panels and form controls
+   5. Practice card
+   6. Feedback (dictionary entry)
+   7. Utilities and accessibility
+   8. Responsive adjustments
+   ========================================================= */
+
+/* ---------- 1. Colours and base settings ---------- */
+:root {
+  --navy-900: #0c1830;
+  --navy-800: #13233f;
+  --navy-700: #1a2f53;
+  --navy-600: #274270;
+  --ink: #eaf0fa;
+  --muted: #a9b8d3;
+  --amber: #f5b841;
+  --amber-dark: #d99a1e;
+  --green: #4cc38a;
+  --green-bg: rgba(76, 195, 138, 0.12);
+  --red: #f27b7b;
+  --red-bg: rgba(242, 123, 123, 0.12);
+  --blue: #8db8ff;
+
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  --radius-lg: 18px;
+  --radius: 10px;
+  --radius-pill: 999px;
+  --speed: 180ms;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--navy-900);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+h1, h2, h3 { line-height: 1.2; margin: 0; }
+
+button, input, select { font: inherit; color: inherit; }
+
+/* ---------- 2. Layout ---------- */
+.container {
+  width: min(1120px, 100% - 2rem);
+  margin-inline: auto;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  grid-template-areas:
+    "stats    stats"
+    "settings practice"
+    "help     practice";
+  align-items: start;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.stats    { grid-area: stats; }
+.settings { grid-area: settings; }
+.practice { grid-area: practice; }
+.help     { grid-area: help; }
+
+/* ---------- 3. Header and statistics ---------- */
+.site-header { padding: 2.5rem 0 1.5rem; }
+
+.site-header h1 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: clamp(1.7rem, 4vw, 2.5rem);
+  letter-spacing: -0.01em;
+}
+
+.intro {
+  color: var(--muted);
+  max-width: 62ch;
+  margin: 0.6rem 0 0;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  background: var(--navy-800);
+  border: 1px solid var(--navy-600);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  padding: 0.85rem 1rem;
+  border-left: 1px solid var(--navy-600);
+}
+.stat:first-child { border-left: 0; }
+
+.stat__value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.stat__label { color: var(--muted); font-size: 0.85rem; }
+.stat__sub { display: block; font-size: 0.78rem; opacity: 0.85; }
+.stat--good .stat__value { color: var(--green); }
+.stat--bad .stat__value { color: var(--red); }
+
+/* ---------- 4. Panels and form controls ---------- */
+.panel {
+  background: var(--navy-800);
+  border: 1px solid var(--navy-600);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+}
+
+.panel h2 { font-size: 1.05rem; margin-bottom: 1rem; }
+
+.field { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.9rem; }
+.field label { font-size: 0.88rem; color: var(--muted); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.field-row .field { margin-bottom: 0.4rem; }
+
+select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  background: var(--navy-700);
+  border: 1px solid var(--navy-600);
+  border-radius: var(--radius);
+}
+
+.voice-info { font-size: 0.8rem; color: var(--muted); margin: 0 0 0.9rem; min-height: 1.2em; }
+
+.toggle { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 1.1rem; font-size: 0.92rem; }
+.toggle input { width: 1.1rem; height: 1.1rem; accent-color: var(--amber); }
+
+.help p { color: var(--muted); font-size: 0.92rem; margin: 0 0 0.7rem; }
+.help p:last-child { margin-bottom: 0; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.1rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--speed), border-color var(--speed), opacity var(--speed);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn--primary { background: var(--amber); color: #1b1404; }
+.btn--primary:hover:not(:disabled) { background: var(--amber-dark); }
+
+.btn--ghost { background: transparent; border-color: var(--navy-600); }
+.btn--ghost:hover:not(:disabled) { background: var(--navy-700); border-color: var(--muted); }
+
+.btn--small { min-height: 2.25rem; padding: 0.35rem 0.9rem; font-size: 0.88rem; }
+
+/* ---------- 5. Practice card ---------- */
+.practice { padding: 1.5rem; }
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.88rem;
+}
+
+.badge {
+  padding: 0.2rem 0.7rem;
+  border-radius: var(--radius-pill);
+  background: var(--navy-700);
+  border: 1px solid var(--navy-600);
+}
+.badge:empty { display: none; }
+.badge--mode { color: var(--amber); border-color: rgba(245, 184, 65, 0.4); }
+
+.meta__topic { color: var(--muted); }
+.meta__counter { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+.progress { display: flex; align-items: center; gap: 0.75rem; margin: 1rem 0 0.5rem; }
+.progress__bar {
+  flex: 1;
+  height: 8px;
+  background: var(--navy-700);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  width: 0;
+  background: var(--blue);
+  border-radius: inherit;
+  transition: width 300ms ease;
+}
+.progress__text { font-size: 0.82rem; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.alert {
+  margin: 1rem 0 0;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  background: var(--red-bg);
+  border: 1px solid var(--red);
+  font-size: 0.92rem;
+}
+
+/* The listening area: the play button is the centre of the page */
+.listen {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.75rem 0 1.5rem;
+}
+
+.play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.9rem 1.6rem 0.9rem 1.1rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--amber);
+  color: #1b1404;
+  font-size: 1.15rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--speed), transform var(--speed);
+}
+.play:hover:not(:disabled) { background: var(--amber-dark); }
+.play:active:not(:disabled) { transform: scale(0.97); }
+.play:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.play__icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  padding: 0.35rem;
+  border-radius: 50%;
+  background: rgba(27, 20, 4, 0.12);
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 0;
+}
+.play__wave { fill: none; stroke-width: 2; stroke-linecap: round; }
+
+/* While speaking, the sound waves pulse – the one animation on the page */
+.play.is-playing .play__wave { animation: wave 0.9s ease-in-out infinite; }
+.play.is-playing .play__wave--outer { animation-delay: 0.15s; }
+@keyframes wave {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.25; }
+}
+
+.audio-status { color: var(--muted); font-size: 0.9rem; }
+
+.answer__label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+.answer__row { display: flex; gap: 0.6rem; }
+
+.answer__input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 1rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.02em;
+  background: var(--navy-900);
+  border: 2px solid var(--navy-600);
+  border-radius: var(--radius);
+  transition: border-color var(--speed);
+}
+.answer__input:focus { border-color: var(--blue); outline: none; }
+.answer__input[aria-invalid="true"] { border-color: var(--red); }
+.answer__input:disabled { opacity: 0.6; }
+
+.input-message { color: var(--red); font-size: 0.9rem; margin: 0.45rem 0 0; min-height: 1.35em; }
+
+.hint-text {
+  margin: 0.25rem 0 0;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--navy-700);
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+}
+
+.actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 1rem; }
+.actions #next-btn { margin-left: auto; }
+
+.end-panel { margin-top: 2rem; }
+.end-panel h3 { font-family: var(--serif); font-size: 1.5rem; margin-bottom: 0.5rem; }
+.end-panel p { color: var(--muted); max-width: 60ch; }
+.end-panel .actions #restart-btn { margin-left: 0; }
+
+/* ---------- 6. Feedback (dictionary entry) ---------- */
+.feedback {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--navy-600);
+  border-left-width: 5px;
+  animation: reveal 220ms ease-out;
+}
+.feedback--correct   { border-color: var(--green); background: var(--green-bg); }
+.feedback--incorrect { border-color: var(--red);   background: var(--red-bg); }
+.feedback--revealed  { border-color: var(--blue);  background: rgba(141, 184, 255, 0.08); }
+
+@keyframes reveal {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.feedback__title { font-weight: 700; font-size: 1.05rem; margin: 0 0 0.4rem; }
+.feedback--correct .feedback__title   { color: var(--green); }
+.feedback--incorrect .feedback__title { color: var(--red); }
+
+.feedback__yours { margin: 0 0 0.75rem; color: var(--muted); }
+.feedback__typed { color: var(--ink); text-decoration: line-through; text-decoration-color: var(--red); }
+
+.entry {
+  margin-top: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: var(--navy-900);
+  border-radius: var(--radius);
+}
+.entry__head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.75rem; }
+.entry__word {
+  font-family: var(--serif);
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  word-break: break-word;
+}
+.entry__pos { font-family: var(--serif); font-style: italic; color: var(--amber); font-size: 1.1rem; }
+.entry__note { font-size: 0.88rem; color: var(--muted); margin: 0.2rem 0 0; }
+.entry__label { font-size: 0.82rem; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+
+.entry__synonyms { list-style: none; display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0; padding: 0; }
+.entry__synonyms li {
+  padding: 0.2rem 0.75rem;
+  border-radius: var(--radius-pill);
+  background: var(--navy-700);
+  font-size: 0.95rem;
+}
+.entry__example { font-family: var(--serif); font-size: 1.08rem; line-height: 1.6; margin: 0; }
+
+.feedback__tip { margin: 0.8rem 0 0; font-size: 0.95rem; }
+
+/* ---------- 7. Utilities and accessibility ---------- */
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -3rem;
+  padding: 0.5rem 1rem;
+  background: var(--amber);
+  color: #1b1404;
+  border-radius: var(--radius);
+  z-index: 10;
+}
+.skip-link:focus { top: 1rem; }
+
+:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+
+[hidden] { display: none !important; }
+
+.site-footer { color: var(--muted); font-size: 0.85rem; padding: 0 0 2rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- 8. Responsive adjustments ---------- */
+
+/* Tablet: settings sit above the practice card */
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "stats"
+      "settings"
+      "practice"
+      "help";
+  }
+  .settings { display: grid; grid-template-columns: 1fr 1fr; column-gap: 1rem; }
+  .settings h2, .settings .voice-info { grid-column: 1 / -1; }
+  .settings .toggle { align-self: center; }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .site-header { padding: 1.5rem 0 1rem; }
+  .stats { grid-template-columns: repeat(3, 1fr); }
+  .stat:nth-child(4) { border-left: 0; }
+  .stat:nth-child(n + 4) { border-top: 1px solid var(--navy-600); }
+  .stat__value { font-size: 1.3rem; }
+
+  .settings { display: block; }
+  .practice { padding: 1.1rem; }
+  .meta__counter { margin-left: 0; width: 100%; }
+
+  .play { flex: 1; justify-content: center; }
+  .answer__row { flex-direction: column; }
+  .answer__row .btn { width: 100%; }
+
+  .actions .btn { flex: 1 1 45%; }
+  .actions #next-btn { margin-left: 0; flex-basis: 100%; }
+}
