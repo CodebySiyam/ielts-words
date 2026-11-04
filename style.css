@@ -2,9 +2,9 @@
    IELTS Listening Vocabulary Trainer – styles
    1. Colours and base settings
    2. Layout
-   3. Header and statistics
+   3. Header, section tabs and statistics
    4. Panels and form controls
-   5. Practice card
+   5. Practice card (listen area and meaning clue)
    6. Feedback (dictionary entry)
    7. Utilities and accessibility
    8. Responsive adjustments
@@ -25,6 +25,7 @@
   --red: #f27b7b;
   --red-bg: rgba(242, 123, 123, 0.12);
   --blue: #8db8ff;
+  --violet: #c3a6ff;
 
   --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -75,7 +76,7 @@ button, input, select { font: inherit; color: inherit; }
 .practice { grid-area: practice; }
 .help     { grid-area: help; }
 
-/* ---------- 3. Header and statistics ---------- */
+/* ---------- 3. Header, section tabs and statistics ---------- */
 .site-header { padding: 2.5rem 0 1.5rem; }
 
 .site-header h1 {
@@ -90,6 +91,38 @@ button, input, select { font: inherit; color: inherit; }
   max-width: 62ch;
   margin: 0.6rem 0 0;
 }
+
+/* Two sections: IELTS Listening and B1–C2 Vocabulary */
+.sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  max-width: 720px;
+  margin-top: 1.5rem;
+}
+
+.sections__tab {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.85rem 1.1rem;
+  text-align: left;
+  background: var(--navy-800);
+  border: 1px solid var(--navy-600);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background var(--speed), border-color var(--speed);
+}
+.sections__tab:hover { border-color: var(--muted); }
+.sections__tab[aria-selected="true"] {
+  background: var(--navy-700);
+  border-color: var(--amber);
+  box-shadow: inset 0 -3px 0 var(--amber);
+}
+
+.sections__name { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; }
+.sections__desc { font-size: 0.85rem; color: var(--muted); }
 
 .stats {
   display: grid;
@@ -270,6 +303,42 @@ select {
 
 .audio-status { color: var(--muted); font-size: 0.9rem; }
 
+/* Meaning clue (Read the meaning, write the word) */
+.clue {
+  margin: 1.75rem 0 1.5rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--navy-900);
+  border-left: 4px solid var(--amber);
+  border-radius: var(--radius);
+}
+.clue__head { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.45rem; }
+.clue__pos { font-family: var(--serif); font-style: italic; color: var(--amber); font-size: 1.05rem; }
+.clue__meaning {
+  margin: 0;
+  max-width: 60ch;
+  font-family: var(--serif);
+  font-size: clamp(1.2rem, 3vw, 1.45rem);
+  line-height: 1.5;
+}
+.clue__example { margin: 0.7rem 0 0; color: var(--muted); font-family: var(--serif); font-size: 1.02rem; line-height: 1.6; }
+
+/* CEFR level tag: colour shows the level */
+.level-tag {
+  display: inline-block;
+  padding: 0.05rem 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-pill);
+  font-family: var(--sans);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1.5;
+}
+.level-tag--B1 { color: var(--green); }
+.level-tag--B2 { color: var(--blue); }
+.level-tag--C1 { color: var(--amber); }
+.level-tag--C2 { color: var(--violet); }
+
 .answer__label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
 .answer__row { display: flex; gap: 0.6rem; }
 
@@ -348,8 +417,10 @@ select {
   word-break: break-word;
 }
 .entry__pos { font-family: var(--serif); font-style: italic; color: var(--amber); font-size: 1.1rem; }
+.entry__head .level-tag { align-self: center; }
 .entry__note { font-size: 0.88rem; color: var(--muted); margin: 0.2rem 0 0; }
 .entry__label { font-size: 0.82rem; color: var(--muted); margin: 0.9rem 0 0.3rem; }
+.entry__meaning { margin: 0; font-size: 1.05rem; max-width: 60ch; }
 
 .entry__synonyms { list-style: none; display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0; padding: 0; }
 .entry__synonyms li {
@@ -413,6 +484,11 @@ select {
 /* Mobile */
 @media (max-width: 600px) {
   .site-header { padding: 1.5rem 0 1rem; }
+  .sections { gap: 0.5rem; margin-top: 1.1rem; }
+  .sections__tab { padding: 0.7rem 0.8rem; }
+  .sections__name { font-size: 1rem; }
+  .sections__desc { font-size: 0.78rem; }
+
   .stats { grid-template-columns: repeat(3, 1fr); }
   .stat:nth-child(4) { border-left: 0; }
   .stat:nth-child(n + 4) { border-top: 1px solid var(--navy-600); }
@@ -423,6 +499,7 @@ select {
   .meta__counter { margin-left: 0; width: 100%; }
 
   .play { flex: 1; justify-content: center; }
+  .clue { padding: 0.95rem 1rem; }
   .answer__row { flex-direction: column; }
   .answer__row .btn { width: 100%; }
 
