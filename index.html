@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Listening and spelling practice for IELTS vocabulary.">
+  <meta name="description" content="Listening, spelling and meaning practice for IELTS and B1–C2 vocabulary.">
   <title>IELTS Listening Vocabulary Trainer</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -14,9 +14,23 @@
     <div class="container">
       <h1>IELTS Listening Vocabulary Trainer</h1>
       <p class="intro">
-        Listen to a word, type what you hear, then study its spelling, part of speech,
-        synonyms and an example sentence. <span id="total-words">0</span> words across all four parts of the test.
+        Listen to a word and type it, or read an easy meaning and write the word. Then study its
+        spelling, part of speech, synonyms and an example sentence. <span id="total-words">0</span> words in two sections.
       </p>
+
+      <!-- ===== Section tabs ===== -->
+      <div class="sections" role="tablist" aria-label="Word sections">
+        <button type="button" class="sections__tab" role="tab" id="tab-ielts"
+                data-section="ielts" aria-selected="true" aria-controls="practice-panel">
+          <span class="sections__name">IELTS Listening</span>
+          <span class="sections__desc"><span id="count-ielts">0</span> words from the four test parts</span>
+        </button>
+        <button type="button" class="sections__tab" role="tab" id="tab-level"
+                data-section="level" aria-selected="false" aria-controls="practice-panel" tabindex="-1">
+          <span class="sections__name">B1–C2 Vocabulary</span>
+          <span class="sections__desc"><span id="count-level">0</span> words with easy meanings</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -37,21 +51,21 @@
 
       <div class="field">
         <label for="mode-select">Practice mode</label>
-        <select id="mode-select">
-          <option value="all">All Vocabulary</option>
-          <option value="part1">IELTS Part 1: everyday conversations</option>
-          <option value="part2">IELTS Part 2: monologues and public information</option>
-          <option value="part3">IELTS Part 3: academic discussions</option>
-          <option value="part4">IELTS Part 4: academic lectures</option>
-          <option value="topic">Topic Practice</option>
-          <option value="spelling">Spelling Challenge</option>
-          <option value="revision">Revision Mode (this session)</option>
-        </select>
+        <!-- Options are added by script.js for the selected section -->
+        <select id="mode-select"></select>
       </div>
 
       <div class="field" id="topic-field" hidden>
         <label for="topic-select">Topic</label>
         <select id="topic-select"></select>
+      </div>
+
+      <div class="field">
+        <label for="practice-select">Practice type</label>
+        <select id="practice-select">
+          <option value="listen">Listen and spell the word</option>
+          <option value="meaning">Read the meaning, write the word</option>
+        </select>
       </div>
 
       <div class="field-row">
@@ -84,8 +98,8 @@
     </section>
 
     <!-- ===== Practice card ===== -->
-    <section class="panel practice" aria-labelledby="practice-heading">
-      <h2 id="practice-heading" class="visually-hidden">Listening practice</h2>
+    <section class="panel practice" id="practice-panel" aria-labelledby="practice-heading">
+      <h2 id="practice-heading" class="visually-hidden">Vocabulary practice</h2>
 
       <div class="meta">
         <span class="badge badge--mode" id="meta-mode"></span>
@@ -104,7 +118,8 @@
       <p class="alert" id="audio-warning" role="alert" hidden></p>
 
       <div id="exercise">
-        <div class="listen">
+        <!-- Listen mode: play the word -->
+        <div class="listen" id="listen-area">
           <button type="button" class="play" id="play-btn" aria-label="Play audio">
             <svg class="play__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
               <path d="M4 9v6h4l5 4V5L8 9H4z"/>
@@ -117,8 +132,11 @@
           <span class="audio-status" id="audio-status" aria-live="polite"></span>
         </div>
 
+        <!-- Meaning mode: read the clue (filled by script.js) -->
+        <div class="clue" id="clue" aria-live="polite" hidden></div>
+
         <form id="answer-form" class="answer" novalidate>
-          <label for="answer-input" class="answer__label">Type the word you hear</label>
+          <label for="answer-input" class="answer__label" id="answer-label">Type the word you hear</label>
           <div class="answer__row">
             <input type="text" id="answer-input" class="answer__input"
                    autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
@@ -151,7 +169,9 @@
 
     <!-- ===== How it works ===== -->
     <section class="panel help" aria-labelledby="help-heading">
-      <h2 id="help-heading">How scoring works</h2>
+      <h2 id="help-heading">How it works</h2>
+      <p>B1–C2 Vocabulary has words from intermediate (B1) to proficiency (C2) level. Each word has an easy meaning, three synonyms and an example. Levels are approximate.</p>
+      <p>Practice type: listen and spell trains your ears; read the meaning trains your memory. After a meaning answer, press Play to hear the word.</p>
       <p>Answers ignore capital letters and extra spaces, but every letter must be right, just as in the real test. British and American spellings are both accepted.</p>
       <p>Show answer counts as incorrect. Skipped words aren't scored, but they appear in Revision Mode with your mistakes.</p>
       <p>Keyboard: press Enter to submit, Tab to move between controls, and Alt + R to replay the word while typing.</p>
@@ -162,6 +182,7 @@
     <p>Runs entirely in your browser. Audio uses your device's built-in speech voices.</p>
   </footer>
 
+  <script src="levels.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
