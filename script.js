@@ -1,10 +1,12 @@
 /* =========================================================
    IELTS Listening Vocabulary Trainer – script.js
    Sections:
-   1. Vocabulary data (batches)   2. Practice modes
+   1. Vocabulary data (batches)   1b. B1–C2 level vocabulary
+   2. Practice modes and sections
    3. App state   4. DOM references   5. Helpers
-   6. Settings    7. Audio          8. Filtering
-   9. Loading words  10. Checking answers  11. Spelling advice
+   6. Settings    7. Audio          8. Filtering and sections
+   9. Loading words (listen or meaning prompt)
+   10. Checking answers  11. Spelling advice
    12. Feedback  13. Statistics  14. End of session  15. Start-up
    ========================================================= */
 
@@ -23,12 +25,14 @@
    usually the American form (IELTS accepts UK or US spelling).
 
    addWords() converts each compact entry into a full object:
-   { id, word, partOfSpeech, synonyms, example, topic,
-     ieltsPart, difficulty, alternatives }
+   { id, word, partOfSpeech, meaning, synonyms, example, topic,
+     ieltsPart, level, difficulty, alternatives, section }
 
    TO ADD MORE WORDS: copy any addWords(...) block, change the
    topic/part, and add new rows. IDs are created automatically,
    so new batches can never break the array.
+
+   B1–C2 words live in levels.js (see section 1b).
    ========================================================= */
 
 const TOPICS = [
@@ -56,6 +60,9 @@ const DIFFICULTY_NAMES = { e: "easy", m: "medium", h: "hard" };
 
 const VOCABULARY = [];
 
+/* One counter for every word in both sections, so IDs are always unique. */
+let nextId = 1;
+
 /**
  * Adds a group of words that share a topic and an IELTS part.
  * @param {number} topicIndex - position in the TOPICS array
@@ -65,15 +72,18 @@ const VOCABULARY = [];
 function addWords(topicIndex, ieltsPart, rows) {
   rows.forEach(function (row) {
     VOCABULARY.push({
-      id: VOCABULARY.length + 1,
+      id: nextId++,
       word: row[0],
       partOfSpeech: row[1],
+      meaning: "",
       synonyms: row[2].split(",").map(function (s) { return s.trim(); }),
       example: row[3],
       topic: TOPICS[topicIndex],
       ieltsPart: ieltsPart,
+      level: "",
       difficulty: DIFFICULTY_NAMES[row[4]] || "medium",
-      alternatives: row[5] ? [row[5]] : []
+      alternatives: row[5] ? [row[5]] : [],
+      section: "ielts"
     });
   });
 }
@@ -829,21 +839,90 @@ addWords(0, 1, [
 
 
 /* =========================================================
-   2. PRACTICE MODES
-   Each mode has a label and a filter function that decides
-   which words belong to it. Revision Mode is built from the
-   session history instead (see getRevisionWords).
+   1b. B1–C2 LEVEL VOCABULARY
+   ---------------------------------------------------------
+   The word lists are in levels.js (LEVEL_DATA), which loads
+   before this file. Each row:
+
+     [ word, partOfSpeech, "easy meaning", "syn1, syn2, syn3", example, alternativeSpelling ]
+
+   If levels.js is missing, this section is simply empty.
+   ========================================================= */
+
+const LEVELS = {
+  B1: { label: "Intermediate",       difficulty: "easy" },
+  B2: { label: "Upper-intermediate", difficulty: "medium" },
+  C1: { label: "Advanced",           difficulty: "hard" },
+  C2: { label: "Proficiency",        difficulty: "hard" }
+};
+
+const LEVEL_VOCABULARY = [];
+
+/**
+ * Adds a group of words that share a CEFR level.
+ * @param {string} level - "B1", "B2", "C1" or "C2"
+ * @param {Array}  rows  - compact level entries
+ */
+function addLevelWords(level, rows) {
+  rows.forEach(function (row) {
+    LEVEL_VOCABULARY.push({
+      id: nextId++,
+      word: row[0],
+      partOfSpeech: row[1],
+      meaning: row[2],
+      synonyms: row[3].split(",").map(function (s) { return s.trim(); }),
+      example: row[4],
+      topic: LEVELS[level].label + " vocabulary",
+      ieltsPart: null,
+      level: level,
+      difficulty: LEVELS[level].difficulty,
+      alternatives: row[5] ? [row[5]] : [],
+      section: "level"
+    });
+  });
+}
+
+if (typeof LEVEL_DATA === "object" && LEVEL_DATA !== null) {
+  Object.keys(LEVELS).forEach(function (level) {
+    if (Array.isArray(LEVEL_DATA[level])) addLevelWords(level, LEVEL_DATA[level]);
+  });
+}
+
+/* Every word in both sections (used for spelling advice and data checks). */
+const ALL_WORDS = VOCABULARY.concat(LEVEL_VOCABULARY);
+
+
+/* =========================================================
+   2. PRACTICE MODES AND SECTIONS
+   Each mode belongs to one section. "option" is the text in
+   the drop-down; "label" is the short badge on the card.
+   Revision modes are built from the session history instead
+   of a filter (see getRevisionWords).
    ========================================================= */
 
 const MODES = {
-  all:      { label: "All Vocabulary",     filter: function () { return true; } },
-  part1:    { label: "IELTS Part 1",       filter: function (w) { return w.ieltsPart === 1; } },
-  part2:    { label: "IELTS Part 2",       filter: function (w) { return w.ieltsPart === 2; } },
-  part3:    { label: "IELTS Part 3",       filter: function (w) { return w.ieltsPart === 3; } },
-  part4:    { label: "IELTS Part 4",       filter: function (w) { return w.ieltsPart === 4; } },
-  topic:    { label: "Topic Practice",     filter: function (w) { return w.topic === state.topic; } },
-  spelling: { label: "Spelling Challenge", filter: function (w) { return w.difficulty === "hard" || Boolean(CONFUSED_NOTES[w.word]); } },
-  revision: { label: "Revision Mode",      filter: null }
+  // Section: IELTS Listening
+  all:      { section: "ielts", label: "All Vocabulary",     option: "All Vocabulary",                                   filter: function () { return true; } },
+  part1:    { section: "ielts", label: "IELTS Part 1",       option: "IELTS Part 1: everyday conversations",             filter: function (w) { return w.ieltsPart === 1; } },
+  part2:    { section: "ielts", label: "IELTS Part 2",       option: "IELTS Part 2: monologues and public information",  filter: function (w) { return w.ieltsPart === 2; } },
+  part3:    { section: "ielts", label: "IELTS Part 3",       option: "IELTS Part 3: academic discussions",               filter: function (w) { return w.ieltsPart === 3; } },
+  part4:    { section: "ielts", label: "IELTS Part 4",       option: "IELTS Part 4: academic lectures",                  filter: function (w) { return w.ieltsPart === 4; } },
+  topic:    { section: "ielts", label: "Topic Practice",     option: "Topic Practice",                                   filter: function (w) { return w.topic === state.topic; } },
+  spelling: { section: "ielts", label: "Spelling Challenge", option: "Spelling Challenge",                               filter: function (w) { return w.difficulty === "hard" || Boolean(CONFUSED_NOTES[w.word]); } },
+  revision: { section: "ielts", label: "Revision Mode",      option: "Revision Mode (this session)",                     revision: true },
+
+  // Section: B1–C2 Vocabulary
+  levelAll:      { section: "level", label: "All levels",    option: "All levels: B1 to C2",         filter: function () { return true; } },
+  levelB1:       { section: "level", label: "Level B1",      option: "B1: intermediate",             filter: function (w) { return w.level === "B1"; } },
+  levelB2:       { section: "level", label: "Level B2",      option: "B2: upper-intermediate",       filter: function (w) { return w.level === "B2"; } },
+  levelC1:       { section: "level", label: "Level C1",      option: "C1: advanced",                 filter: function (w) { return w.level === "C1"; } },
+  levelC2:       { section: "level", label: "Level C2",      option: "C2: proficiency",              filter: function (w) { return w.level === "C2"; } },
+  levelRevision: { section: "level", label: "Revision Mode", option: "Revision Mode (this session)", revision: true }
+};
+
+const SECTIONS = {
+  ielts: { words: VOCABULARY,       firstMode: "all",      revisionMode: "revision" },
+  level: { words: LEVEL_VOCABULARY, firstMode: "levelAll", revisionMode: "levelRevision" }
 };
 
 /* =========================================================
@@ -852,7 +931,9 @@ const MODES = {
    ========================================================= */
 
 const state = {
+  section: "ielts",   // "ielts" | "level"
   mode: "all",
+  lastMode: { ielts: "all", level: "levelAll" }, // remembered when switching sections
   topic: TOPICS[0],
   queue: [],          // words for the current session, in order
   position: 0,        // index of the current word in the queue
@@ -862,7 +943,7 @@ const state = {
   completed: 0,       // words finished in this queue (answered, revealed or skipped)
   stats: { attempted: 0, correct: 0, incorrect: 0, streak: 0, bestStreak: 0 },
   history: new Map(), // word id -> { entry, result, wrongCount }
-  settings: { accent: "en-GB", rate: 0.9, hints: false },
+  settings: { accent: "en-GB", rate: 0.9, hints: false, practice: "listen", section: "ielts" },
   voices: []
 };
 
@@ -875,9 +956,12 @@ const speechSupported = "speechSynthesis" in window && "SpeechSynthesisUtterance
 const $ = function (id) { return document.getElementById(id); };
 
 const ui = {
+  sectionTabs: Array.prototype.slice.call(document.querySelectorAll(".sections__tab")),
+
   modeSelect: $("mode-select"),
   topicField: $("topic-field"),
   topicSelect: $("topic-select"),
+  practiceSelect: $("practice-select"),
   accentSelect: $("accent-select"),
   speedSelect: $("speed-select"),
   hintsToggle: $("hints-toggle"),
@@ -900,11 +984,15 @@ const ui = {
   progressText: $("progress-text"),
 
   audioWarning: $("audio-warning"),
+  listenArea: $("listen-area"),
   playBtn: $("play-btn"),
   replayBtn: $("replay-btn"),
   audioStatus: $("audio-status"),
 
+  clue: $("clue"),
+
   form: $("answer-form"),
+  answerLabel: $("answer-label"),
   input: $("answer-input"),
   submitBtn: $("submit-btn"),
   inputMessage: $("input-message"),
@@ -978,6 +1066,30 @@ function editDistance(a, b) {
   return d[a.length][b.length];
 }
 
+/** Escapes characters that have a special meaning in regular expressions. */
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Hides the word (and its forms, like "achieved") in the example sentence.
+ * Returns "" if the word can't be found, so the answer is never shown by accident.
+ */
+function blankExample(entry) {
+  let found = false;
+  let text = entry.example;
+  [entry.word].concat(entry.alternatives).forEach(function (form) {
+    // "achieve" → "achiev" so that "achieved" and "achieving" are hidden too
+    const stem = form.length > 4 && /e$/i.test(form) ? form.slice(0, -1) : form;
+    const pattern = new RegExp("\\b" + escapeRegExp(stem) + "[a-z]*", "gi");
+    text = text.replace(pattern, function () {
+      found = true;
+      return "_____";
+    });
+  });
+  return found ? text : "";
+}
+
 /* =========================================================
    6. SETTINGS (optional localStorage – the app works without it)
    ========================================================= */
@@ -997,6 +1109,8 @@ function loadSettings() {
       if (typeof saved.accent === "string") state.settings.accent = saved.accent;
       if (typeof saved.rate === "number") state.settings.rate = saved.rate;
       if (typeof saved.hints === "boolean") state.settings.hints = saved.hints;
+      if (saved.practice === "listen" || saved.practice === "meaning") state.settings.practice = saved.practice;
+      if (SECTIONS[saved.section]) state.settings.section = saved.section;
     }
   } catch (error) {
     // Ignore unreadable or missing settings.
@@ -1004,6 +1118,7 @@ function loadSettings() {
   ui.accentSelect.value = state.settings.accent;
   ui.speedSelect.value = String(state.settings.rate);
   ui.hintsToggle.checked = state.settings.hints;
+  ui.practiceSelect.value = state.settings.practice;
 }
 
 /* =========================================================
@@ -1049,13 +1164,18 @@ function updateVoiceInfo() {
   ui.voiceInfo.textContent = "Voice: " + voice.name + (exact ? "" : " (chosen accent not installed)");
 }
 
+/** True while the learner is reading a meaning clue (audio would give the answer away). */
+function isMeaningQuestion() {
+  return state.settings.practice === "meaning" && state.status === "waiting";
+}
+
 /** Speaks the current word. The word is never shown on screen. */
 function playAudio() {
   if (!speechSupported) {
     showAudioWarning("Your browser can't play speech. Try Chrome, Edge or Safari, or use Show answer to study the word.");
     return;
   }
-  if (!state.current) return;
+  if (!state.current || isMeaningQuestion()) return;
 
   const synth = window.speechSynthesis;
   synth.cancel(); // stop anything still playing (also fixes a Chrome bug)
@@ -1102,22 +1222,30 @@ function hideAudioWarning() {
 }
 
 /* =========================================================
-   8. FILTERING VOCABULARY & BUILDING A SESSION
+   8. FILTERING VOCABULARY, SECTIONS & BUILDING A SESSION
    ========================================================= */
 
 /** Returns the words that belong to the selected mode. */
 function filterVocabulary(mode) {
-  if (mode === "revision") return getRevisionWords();
-  return VOCABULARY.filter(MODES[mode].filter);
+  const m = MODES[mode];
+  if (m.revision) return getRevisionWords(m.section);
+  return SECTIONS[m.section].words.filter(m.filter);
+}
+
+/** History entries that belong to one section. */
+function historyFor(section) {
+  return Array.from(state.history.values()).filter(function (item) {
+    return item.entry.section === section;
+  });
 }
 
 /**
- * Revision words: everything answered, revealed or skipped this session.
- * Mistakes come first (most mistakes first), then skipped, then correct.
+ * Revision words: everything answered, revealed or skipped this session
+ * in one section. Mistakes come first (most mistakes first), then skipped, then correct.
  */
-function getRevisionWords() {
+function getRevisionWords(section) {
   const order = { incorrect: 0, revealed: 0, skipped: 1, correct: 2 };
-  const items = shuffle(Array.from(state.history.values()));
+  const items = shuffle(historyFor(section));
   items.sort(function (a, b) {
     if (order[a.result] !== order[b.result]) return order[a.result] - order[b.result];
     return b.wrongCount - a.wrongCount;
@@ -1128,7 +1256,7 @@ function getRevisionWords() {
 /** Creates a new session for the current mode and loads the first word. */
 function buildQueue() {
   const words = filterVocabulary(state.mode);
-  state.queue = state.mode === "revision" ? words : shuffle(words);
+  state.queue = MODES[state.mode].revision ? words : shuffle(words);
   state.position = 0;
   state.completed = 0;
 
@@ -1139,13 +1267,52 @@ function buildQueue() {
   loadWord(false);
 }
 
-/** Changes the practice mode (called by the mode selector). */
+/** Changes the practice mode (called by the mode selector and buttons). */
 function selectMode(mode) {
   if (!MODES[mode]) return;
   if (speechSupported) window.speechSynthesis.cancel();
   state.mode = mode;
+  state.lastMode[MODES[mode].section] = mode;
+  ui.modeSelect.value = mode;
   ui.topicField.hidden = mode !== "topic";
   buildQueue();
+}
+
+/** Fills the mode drop-down with the modes of the current section. */
+function fillModeSelect() {
+  ui.modeSelect.replaceChildren();
+  Object.keys(MODES).forEach(function (key) {
+    if (MODES[key].section !== state.section) return;
+    const option = el("option", "", MODES[key].option);
+    option.value = key;
+    ui.modeSelect.appendChild(option);
+  });
+}
+
+/**
+ * Switches between "IELTS Listening" and "B1–C2 Vocabulary".
+ * @param {string}  section
+ * @param {boolean} moveFocus - keep keyboard focus on the tab (arrow-key navigation)
+ */
+function switchSection(section, moveFocus) {
+  if (!SECTIONS[section]) return;
+  state.section = section;
+  state.settings.section = section;
+  saveSettings();
+
+  ui.sectionTabs.forEach(function (tab) {
+    const active = tab.getAttribute("data-section") === section;
+    tab.setAttribute("aria-selected", active ? "true" : "false");
+    tab.tabIndex = active ? 0 : -1;
+  });
+
+  fillModeSelect();
+  selectMode(state.lastMode[section]);
+
+  if (moveFocus) {
+    const activeTab = ui.sectionTabs.find(function (tab) { return tab.getAttribute("data-section") === section; });
+    if (activeTab) activeTab.focus();
+  }
 }
 
 /* =========================================================
@@ -1179,12 +1346,45 @@ function loadWord(autoplay) {
   ui.hintText.textContent = "";
   ui.hintText.hidden = true;
 
+  renderPrompt();
   setButtons();
   updateMeta();
   updateProgress();
 
   ui.input.focus();
-  if (autoplay) playAudio();
+  if (autoplay && state.settings.practice === "listen") playAudio();
+}
+
+/**
+ * Shows the right prompt for the practice type:
+ * - listen:  the Play button
+ * - meaning: the easy meaning and the example with a gap
+ * After answering a meaning question, the Play button returns so you can hear the word.
+ */
+function renderPrompt() {
+  const meaningMode = state.settings.practice === "meaning";
+  const asking = isMeaningQuestion() && Boolean(state.current);
+
+  ui.listenArea.hidden = asking;
+  ui.clue.hidden = !asking;
+  ui.answerLabel.textContent = meaningMode ? "Type the word that matches the meaning" : "Type the word you hear";
+  if (asking) buildClue(state.current);
+}
+
+/** Builds the meaning clue. IELTS words have no meaning text, so their synonyms are used. */
+function buildClue(entry) {
+  ui.clue.replaceChildren();
+
+  const head = el("p", "clue__head");
+  head.appendChild(el("span", "clue__pos", entry.partOfSpeech));
+  if (entry.level) head.appendChild(el("span", "level-tag level-tag--" + entry.level, entry.level));
+  ui.clue.appendChild(head);
+
+  const text = entry.meaning ? entry.meaning : "Similar words: " + entry.synonyms.join(", ");
+  ui.clue.appendChild(el("p", "clue__meaning", text));
+
+  const gapped = blankExample(entry);
+  if (gapped) ui.clue.appendChild(el("p", "clue__example", gapped));
 }
 
 /** Moves on to the next word. */
@@ -1221,7 +1421,9 @@ function submitAnswer() {
 
   const answer = ui.input.value;
   if (!normalise(answer)) {
-    ui.inputMessage.textContent = "Type the word you heard, then press Enter.";
+    ui.inputMessage.textContent = state.settings.practice === "meaning"
+      ? "Type the word that matches the meaning, then press Enter."
+      : "Type the word you heard, then press Enter.";
     ui.input.setAttribute("aria-invalid", "true");
     ui.input.focus();
     return;
@@ -1271,9 +1473,11 @@ function explainMistake(answer, entry) {
   if (!typed) return "";
 
   // Did they type a different word from the collection?
-  const other = VOCABULARY.find(function (w) { return normalise(w.word) === typed && w.id !== entry.id; });
+  const other = ALL_WORDS.find(function (w) { return normalise(w.word) === typed && w.id !== entry.id; });
   if (other) {
-    return "\u201C" + other.word + "\u201D is a different word in this collection. Listen again for the sounds that differ.";
+    return state.settings.practice === "meaning"
+      ? "\u201C" + other.word + "\u201D is a different word in this collection. Read the meaning again and compare."
+      : "\u201C" + other.word + "\u201D is a different word in this collection. Listen again for the sounds that differ.";
   }
 
   const squash = function (s) { return s.replace(/(.)\1+/g, "$1"); };
@@ -1335,7 +1539,9 @@ function explainMistake(answer, entry) {
   if (distance <= 2) {
     return "Very close: " + distance + " letter" + (distance === 1 ? " is" : "s are") + " different. Compare your answer with the correct spelling letter by letter.";
   }
-  return "Try breaking the word into syllables and replaying it at slow speed.";
+  return state.settings.practice === "meaning"
+    ? "Read the meaning again and think of a word with this part of speech. Then press Play to hear it."
+    : "Try breaking the word into syllables and replaying it at slow speed.";
 }
 
 /* =========================================================
@@ -1370,10 +1576,16 @@ function displayFeedback(type, entry, answer) {
   const head = el("div", "entry__head");
   head.appendChild(el("span", "entry__word", entry.word));
   head.appendChild(el("span", "entry__pos", entry.partOfSpeech));
+  if (entry.level) head.appendChild(el("span", "level-tag level-tag--" + entry.level, entry.level));
   entryBox.appendChild(head);
 
   if (entry.alternatives.length) {
     entryBox.appendChild(el("p", "entry__note", "Also accepted: " + entry.alternatives.join(", ")));
+  }
+
+  if (entry.meaning) {
+    entryBox.appendChild(el("p", "entry__label", "Meaning"));
+    entryBox.appendChild(el("p", "entry__meaning", entry.meaning));
   }
 
   const synLabel = el("p", "entry__label", "Synonyms");
@@ -1399,6 +1611,7 @@ function displayFeedback(type, entry, answer) {
 
   box.hidden = false;
   ui.input.disabled = true;
+  renderPrompt(); // in meaning practice, the Play button comes back so you can hear the word
   setButtons();
   updateProgress();
   ui.nextBtn.focus();
@@ -1454,11 +1667,15 @@ function updateProgress() {
   ui.progressText.textContent = state.completed + " of " + total.toLocaleString() + " done";
 }
 
-/** Shows mode, part, topic and word number – never the word itself. */
+/** Shows mode, part or level, topic and word number – never the word itself. */
 function updateMeta() {
   const w = state.current;
   ui.metaMode.textContent = MODES[state.mode].label;
-  ui.metaPart.textContent = w ? "Part " + w.ieltsPart : "";
+  if (!w) {
+    ui.metaPart.textContent = "";
+  } else {
+    ui.metaPart.textContent = w.level ? "Level " + w.level : "Part " + w.ieltsPart;
+  }
   ui.metaTopic.textContent = w ? w.topic : "";
   ui.counter.textContent = w
     ? "Word " + (state.position + 1) + " of " + state.queue.length.toLocaleString()
@@ -1496,7 +1713,7 @@ function endSession() {
     ". Session accuracy so far: " + calculateAccuracy() + "% (" + state.stats.correct + " of " +
     state.stats.attempted + " correct).";
   ui.restartBtn.hidden = false;
-  ui.reviseBtn.hidden = state.history.size === 0;
+  ui.reviseBtn.hidden = historyFor(state.section).length === 0;
   ui.restartBtn.textContent = "Practise this mode again";
   updateMeta();
   updateProgress();
@@ -1509,16 +1726,19 @@ function showEmptyState() {
   state.current = null;
   ui.exercise.hidden = true;
   ui.endPanel.hidden = false;
-  if (state.mode === "revision") {
+  const firstMode = MODES[SECTIONS[state.section].firstMode];
+  if (MODES[state.mode].revision) {
     ui.endTitle.textContent = "Nothing to revise yet";
-    ui.endText.textContent = "Answer, skip or reveal a few words in another mode. They will appear here, with mistakes first.";
-    ui.restartBtn.textContent = "Start All Vocabulary";
+    ui.endText.textContent = "Answer, skip or reveal a few words in another mode of this section. They will appear here, with mistakes first.";
+  } else if (!SECTIONS[state.section].words.length) {
+    ui.endTitle.textContent = "No words found";
+    ui.endText.textContent = "This section has no words. Check that levels.js is in the same folder as index.html.";
   } else {
     ui.endTitle.textContent = "No words found";
     ui.endText.textContent = "This selection has no vocabulary. Choose another mode or topic.";
-    ui.restartBtn.textContent = "Start All Vocabulary";
   }
-  ui.restartBtn.hidden = false;
+  ui.restartBtn.textContent = "Start " + firstMode.option;
+  ui.restartBtn.hidden = !SECTIONS[state.section].words.length;
   ui.reviseBtn.hidden = true;
   updateMeta();
   updateProgress();
@@ -1530,9 +1750,8 @@ function resetStatistics() {
   state.stats = { attempted: 0, correct: 0, incorrect: 0, streak: 0, bestStreak: 0 };
   state.history.clear();
   renderStatistics();
-  if (state.mode === "revision") {
-    selectMode("all");
-    ui.modeSelect.value = "all";
+  if (MODES[state.mode].revision) {
+    selectMode(SECTIONS[state.section].firstMode);
   } else {
     buildQueue();
   }
@@ -1569,10 +1788,33 @@ function bindEvents() {
   ui.skipBtn.addEventListener("click", skipWord);
   ui.nextBtn.addEventListener("click", nextWord);
 
+  // Section tabs: click, or use the left/right arrow keys
+  ui.sectionTabs.forEach(function (tab, index) {
+    tab.addEventListener("click", function () {
+      const section = tab.getAttribute("data-section");
+      if (section !== state.section) switchSection(section, false);
+    });
+    tab.addEventListener("keydown", function (event) {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      const step = event.key === "ArrowRight" ? 1 : -1;
+      const nextTab = ui.sectionTabs[(index + step + ui.sectionTabs.length) % ui.sectionTabs.length];
+      switchSection(nextTab.getAttribute("data-section"), true);
+    });
+  });
+
   ui.modeSelect.addEventListener("change", function () { selectMode(ui.modeSelect.value); });
   ui.topicSelect.addEventListener("change", function () {
     state.topic = ui.topicSelect.value;
     buildQueue();
+  });
+
+  ui.practiceSelect.addEventListener("change", function () {
+    state.settings.practice = ui.practiceSelect.value;
+    saveSettings();
+    if (speechSupported) window.speechSynthesis.cancel();
+    renderPrompt();
+    setButtons();
   });
 
   ui.accentSelect.addEventListener("change", function () {
@@ -1597,18 +1839,16 @@ function bindEvents() {
 
   ui.restartBtn.addEventListener("click", function () {
     if (state.status === "empty") {
-      ui.modeSelect.value = "all";
-      selectMode("all");
+      selectMode(SECTIONS[state.section].firstMode);
     } else {
       buildQueue();
     }
   });
   ui.reviseBtn.addEventListener("click", function () {
-    ui.modeSelect.value = "revision";
-    selectMode("revision");
+    selectMode(SECTIONS[state.section].revisionMode);
   });
 
-  // Shortcut: Alt + R replays the audio, even while typing.
+  // Shortcut: Alt + R replays the audio, even while typing (not during a meaning question).
   document.addEventListener("keydown", function (event) {
     if (event.altKey && (event.key === "r" || event.key === "R")) {
       event.preventDefault();
@@ -1617,17 +1857,22 @@ function bindEvents() {
   });
 }
 
-function init() {
-  if (!VOCABULARY.length) {
-    showEmptyState();
-    return;
-  }
-
-  // Warn (in the console) about any entry that breaks the data rules.
-  VOCABULARY.forEach(function (w) {
+/** Warns (in the browser console) about any entry that breaks the data rules. */
+function checkData() {
+  const seen = {};
+  ALL_WORDS.forEach(function (w) {
     if (w.synonyms.length !== 3) console.warn("Entry needs exactly 3 synonyms:", w.word);
+    if (w.section === "level" && !w.meaning) console.warn("Level word needs an easy meaning:", w.word);
+    if (w.section === "level" && !blankExample(w)) console.warn("Example should contain the word:", w.word);
+    const key = normalise(w.word);
+    if (seen[key]) console.warn("Word appears twice:", w.word);
+    seen[key] = true;
   });
+  if (!LEVEL_VOCABULARY.length) console.warn("levels.js was not loaded, so the B1–C2 section is empty.");
+}
 
+function init() {
+  checkData();
   fillTopicSelect();
   loadSettings();
   bindEvents();
@@ -1636,13 +1881,15 @@ function init() {
     loadVoices();
     window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
   } else {
-    showAudioWarning("Your browser can't play speech, so the listening exercise won't work here. Try Chrome, Edge or Safari. You can still use Show answer to study words.");
+    showAudioWarning("Your browser can't play speech, so listening practice won't work here. Try Chrome, Edge or Safari. You can still use \u201CRead the meaning, write the word\u201D.");
     updateVoiceInfo();
   }
 
-  document.getElementById("total-words").textContent = VOCABULARY.length.toLocaleString();
+  $("total-words").textContent = ALL_WORDS.length.toLocaleString();
+  $("count-ielts").textContent = VOCABULARY.length.toLocaleString();
+  $("count-level").textContent = LEVEL_VOCABULARY.length.toLocaleString();
   renderStatistics();
-  selectMode("all");
+  switchSection(state.settings.section, false);
 }
 
 document.addEventListener("DOMContentLoaded", init);
